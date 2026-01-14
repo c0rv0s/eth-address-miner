@@ -1,8 +1,7 @@
 use std::env;
 use secp256k1::Secp256k1;
 use rand::rngs::OsRng;
-use crypto::sha3::Sha3;
-use crypto::digest::Digest;
+use sha3::{Keccak256, Digest};
 use std::thread;
 use std::vec::Vec;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -24,14 +23,19 @@ fn manager(iterations: Arc<AtomicUsize>, found: Arc<AtomicBool>) {
 fn find(prefix: String, iterations: Arc<AtomicUsize>, found: Arc<AtomicBool>) {
     let secp = Secp256k1::new();
     let mut rng = OsRng::new().expect("OsRng");
-    let mut hasher = Sha3::keccak256();
 
     while !found.load(Ordering::SeqCst) {
         let (private_key, public_key) = secp.generate_keypair(&mut rng);
         let serialized_public_key = &public_key.serialize_uncompressed()[1..];
-        hasher.input(&serialized_public_key);
-        let address = &hasher.result_str()[24..];
-        hasher.reset();
+        
+        // Hash the public key with Keccak-256
+        let mut hasher = Keccak256::new();
+        hasher.update(&serialized_public_key);
+        let hash_result = hasher.finalize();
+        
+        // Convert to hex string and take last 20 bytes (40 hex chars) for address
+        let address = format!("{:x}", hash_result);
+        let address = &address[24..]; // Take last 20 bytes (40 hex chars)
 
         if prefix.eq(&address[..prefix.chars().count()]) {
             found.store(true, Ordering::SeqCst);

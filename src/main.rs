@@ -7,6 +7,11 @@ use std::vec::Vec;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time;
+use std::process;
+
+fn is_hex(s: &str) -> bool {
+    s.chars().all(|c| c.is_ascii_hexdigit())
+}
 
 fn manager(iterations: Arc<AtomicUsize>, found: Arc<AtomicBool>) {
     let mut counter = 0;
@@ -53,7 +58,14 @@ fn find(prefix: String, iterations: Arc<AtomicUsize>, found: Arc<AtomicBool>) {
 fn main() {
     print!("eth-address-miner\n");
     let args: Vec<String> = env::args().collect();
-    let prefix = &args[1];
+    let prefix = args.get(1).unwrap_or_else(|| {
+        eprintln!("error: missing prefix/suffix argument");
+        process::exit(1);
+    });
+    if !is_hex(prefix) {
+        eprintln!("error: prefix/suffix must be hex characters only (0-9, a-f). got: \"{}\"", prefix);
+        process::exit(1);
+    }
     let num_cpus = num_cpus::get();
 
     print!("> searching for prefix: {}\n", prefix);
